@@ -427,7 +427,7 @@ void random_example_clicked_callback()
 
     srand(std::time(0));
 
-    random = rand() % 8;
+    random = rand() % 11;
 
     switch (random)
       {
@@ -484,6 +484,42 @@ void random_example_clicked_callback()
           append_pattern_segment(300, 80,     300, 160,     false);
           append_pattern_segment(300, 160,    450, 160,     true);
           append_pattern_segment(450, 160,    450, 200,     false);
+          break;
+
+        case 8:        // hammer
+          append_pattern_segment(190, 130,    200, 50,     true);
+          append_pattern_segment(200, 50,     250, 50,     true);
+          append_pattern_segment(250, 50,     255, 100,    true);
+          append_pattern_segment(255, 100,    295, 100,    true);
+          append_pattern_segment(275, 200,    275, 40,     false);
+          append_pattern_segment(295, 100,    300, 50,     true);
+          append_pattern_segment(300, 50,     350, 50,     true);
+          append_pattern_segment(350, 50,     360, 130,    true);
+          break;
+
+        case 9:        // cactus
+          append_pattern_segment(150, 260,    200, 260,    false);
+          append_pattern_segment(200, 260,    220, 200,    false);
+          append_pattern_segment(180, 175,    220, 200,    false);
+          append_pattern_segment(220, 160,    240, 180,    false);
+          append_pattern_segment(240, 180,    260, 160,    false);
+          append_pattern_segment(260, 160,    240, 140,    false);
+          append_pattern_segment(240, 140,    220, 160,    false);
+          append_pattern_segment(180, 175,    200, 120,    true);
+          append_pattern_segment(200, 120,    280, 120,    true);
+          append_pattern_segment(280, 120,    300, 175,    true);
+          append_pattern_segment(300, 175,    260, 200,    false);
+          append_pattern_segment(260, 200,    280, 260,    false);
+          append_pattern_segment(280, 260,    320, 260,    false);
+          break;
+
+        case 10:       // leaf
+          append_pattern_segment(120, 70,     120, 150,    true);
+          append_pattern_segment(120, 150,    170, 200,    false);
+          append_pattern_segment(170, 200,    270, 200,    true);
+          append_pattern_segment(220, 200,    220, 50,     false);
+          append_pattern_segment(270, 200,    320, 150,    false);
+          append_pattern_segment(320, 150,    320, 70,     true);
           break;
 
         default:
