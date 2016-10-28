@@ -64,6 +64,14 @@ void print_segments(vector<fractal_segment> v)
       print_segment(v[i]);
   }
 
+void print_transform(transform t)
+  {
+    cout << "transform:" << endl;
+    cout << "  rotation: " << t.rotation << " (" << (t.rotation / (2 * G_PI)) * 360 << " deg)" << endl;
+    cout << "  scale: " << t.scale << endl;
+    cout << "  translation: [" << t.translate_x << "," << t.translate_y << "]" << endl;
+  }
+
 transform segment_to_segment_transform(fractal_segment segment_from, fractal_segment segment_to)
   {
     transform result;
@@ -94,7 +102,7 @@ transform segment_to_segment_transform(fractal_segment segment_from, fractal_seg
 
     double z = vec1_x * vec2_y - vec1_y * vec2_x;                    // z component of cross product, to determine CW/CCW
 
-    if (z >= 0)
+    if (z < 0)
       result.rotation *= -1;
       
     result.scale = vec2_length / vec1_length;
@@ -102,11 +110,8 @@ transform segment_to_segment_transform(fractal_segment segment_from, fractal_seg
     return result;
   }
 
-fractal_segment apply_transform_to_segment(fractal_segment segment, transform what_transform)
+fractal_segment apply_transform_to_segment(fractal_segment segment, transform what_transform, double center_x, double center_y)
   {
-    double center_x = (segment.x1 + segment.x2) / 2.0;
-    double center_y = (segment.y1 + segment.y2) / 2.0;
-
     // move to center
     segment.x1 -= center_x;   
     segment.y1 -= center_y;
@@ -120,8 +125,8 @@ fractal_segment apply_transform_to_segment(fractal_segment segment, transform wh
     segment.y2 *= what_transform.scale;
 
     // rotate
-    double s = sin(2 * G_PI - what_transform.rotation);
-    double c = cos(2 * G_PI - what_transform.rotation);
+    double s = sin(what_transform.rotation);
+    double c = cos(what_transform.rotation);
 
     double x = segment.x1;
     double y = segment.y1;
@@ -163,7 +168,7 @@ gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     gtk_render_background(context, cr, 0, 0, width, height);
 
-    cairo_set_line_width (cr,2);
+    cairo_set_line_width(cr,2);
 
     cairo_set_source_rgb(cr,0,0,0);        
 
@@ -190,6 +195,9 @@ void generate_fractal(int iterations)
 
     vector<fractal_segment> new_segments;
 
+    double line_center_x = (fractal_segments[0].x1 + fractal_segments[fractal_segments.size() - 1].x2) / 2.0; 
+    double line_center_y = (fractal_segments[0].y1 + fractal_segments[fractal_segments.size() - 1].y2) / 2.0;
+
     for (int iteration = 0; iteration < iterations; iteration++)
       {
         cout << "iteration " << iteration + 1 << endl;
@@ -211,7 +219,7 @@ void generate_fractal(int iterations)
             for (int j = 0; j < fractal_segments.size(); j++)
               {
                 fractal_segment transformed_segment = fractal_segments[j];
-                transformed_segment = apply_transform_to_segment(transformed_segment,t);       
+                transformed_segment = apply_transform_to_segment(transformed_segment,t,line_center_x,line_center_y);       
                 new_segments.push_back(transformed_segment);
               }
           }
@@ -232,7 +240,7 @@ gboolean clear_clicked_callback(GtkButton *button,gpointer user_data)
 gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
   {
     cout << "rendering" << endl;
-    generate_fractal(1);
+    generate_fractal(gtk_spin_button_get_value(GTK_SPIN_BUTTON(iteration_input)));
     cout << "segments: " << iterated_fractal_segments.size() << endl;
 
     print_segments(iterated_fractal_segments);
@@ -253,7 +261,7 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     gtk_render_background(context, cr, 0, 0, width, height);
 
-    cairo_set_line_width (cr,2);
+    cairo_set_line_width(cr,2);
 
     for (int i = 0; i < fractal_segments.size(); i++)
       {
@@ -262,7 +270,7 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
         if (segment.iterate)
           cairo_set_source_rgb(cr,0,0,0);
         else
-          cairo_set_source_rgb(cr,0.5,0.5,0.5);        
+          cairo_set_source_rgb(cr,0.5,0.5,1);        
 
         cairo_move_to(cr,segment.x1 * width,segment.y1 * height);
         cairo_line_to(cr,segment.x2 * width,segment.y2 * height);
@@ -278,9 +286,20 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     if (fractal_segments.size() > 0)
       {
+        static const double dashed3[] = {10.0};
+        cairo_set_dash(cr,dashed3,1,0);
+
+        cairo_set_source_rgb(cr,0.5,0.5,0.7);
+        cairo_move_to(cr,fractal_segments[0].x1 * width,fractal_segments[0].y1 * height);
+        cairo_line_to(cr,fractal_segments[fractal_segments.size() - 1].x2 * width,fractal_segments[fractal_segments.size() - 1].y2 * height);
+        cairo_stroke(cr);
+       
+        cairo_set_dash(cr,NULL,0,0);
+
         cairo_set_source_rgb(cr,1,0,0);
         cairo_arc(cr,fractal_segments[0].x1 * width,fractal_segments[0].y1 * height,5,0,2 * G_PI);
         cairo_fill(cr);
+
         cairo_set_source_rgb(cr,0,1,0);
         cairo_arc(cr,fractal_segments[fractal_segments.size() - 1].x2 * width,fractal_segments[fractal_segments.size() - 1].y2 * height,5,0,2 * G_PI);
         cairo_fill(cr);
@@ -340,50 +359,6 @@ gboolean mouse_press_callback2(GtkWidget *widget,GdkEventButton *event)
 
 int main(int argc, char *argv[])
   {
-/*
-fractal_segment s1;
-s1.x1 = 0;
-s1.y1 = 0;
-s1.x2 = 1;
-s1.y2 = 0;
-
-fractal_segment s2;
-s2.x1 = 0;
-s2.y1 = 0;
-s2.x2 = 1;
-s2.y2 = 1;
-
-transform aaa = segment_to_segment_transform(s1,s2);
-
-cout << aaa.rotation << endl;
-cout << aaa.scale << endl;
-cout << aaa.translate_x << endl;
-cout << aaa.translate_y << endl;
-
-return 0;
-*/
-
-/*
-fractal_segment s;
-s.x1 = -1;
-s.y1 = 0;
-s.x2 = 1;
-s.y2 = 0;
-
-cout << "[" << s.x1 << "," << s.y1 << "] [" << s.x2 << "," << s.y2 << "]" << endl;
-
-transform t;
-t.rotation = G_PI / 4;
-t.scale = 1;
-t.translate_x = 0;
-t.translate_y = 0;
-
-s = apply_transform_to_segment(s,t);
-
-cout << "[" << s.x1 << "," << s.y1 << "] [" << s.x2 << "," << s.y2 << "]" << endl;
-
-return 0;
-*/
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
