@@ -13,6 +13,12 @@ GtkWidget *box;
 GtkWidget *button_render;
 GtkWidget *button_clear;
 
+GtkWidget *separator;
+
+GtkWidget *iterate_toggle;
+
+GtkWidget *iteration_input;
+
 GtkWidget *frame_menu;
 GtkWidget *frame_render;
 GtkWidget *frame_draw;
@@ -30,6 +36,7 @@ typedef struct
   } fractal_segment;
 
 vector<fractal_segment> fractal_segments;  // segments the user has drawn
+vector<fractal_segment> iterated_fractal_segments;
 int draw_state = 0;                        // 0 - waiting for point 1, 1 - waiting for point 2
 
 double tmp_x1;
@@ -48,16 +55,44 @@ gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
     width = gtk_widget_get_allocated_width(widget);
     height = gtk_widget_get_allocated_height(widget);
 
-    gtk_render_background(context,cr,0,0,width,height);
+    gtk_render_background(context, cr, 0, 0, width, height);
 
-    cairo_arc(cr,width / 2.0, height / 2.0,MIN (width, height) / 2.0,0, 2 * G_PI);
+    cairo_set_line_width (cr,2);
 
-    gtk_style_context_get_color(context,gtk_style_context_get_state(context),&color);
-    gdk_cairo_set_source_rgba(cr,&color);
+    cairo_set_source_rgb(cr,0,0,0);        
 
-    cairo_fill(cr);
+    for (int i = 0; i < iterated_fractal_segments.size(); i++)
+      {
+        fractal_segment segment = iterated_fractal_segments[i];
+        cairo_move_to(cr,segment.x1 * width,segment.y1 * height);
+        cairo_line_to(cr,segment.x2 * width,segment.y2 * height);
+        cairo_stroke(cr);
+      }
 
     return FALSE;
+  }
+
+void generate_fractal(int iterations)
+  {
+    iterated_fractal_segments.clear();
+
+    for (int i = 0; i < fractal_segments.size(); i++)
+      {
+        iterated_fractal_segments.push_back(fractal_segments[i]);
+      }
+  }
+
+gboolean clear_clicked_callback(GtkButton *button,gpointer user_data)
+  {
+    fractal_segments.clear();
+    gtk_widget_queue_draw(draw_area2);
+  }
+
+gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
+  {
+    cout << "rendering" << endl;
+    generate_fractal(3);
+    gtk_widget_queue_draw(draw_area);
   }
 
 gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
@@ -73,33 +108,39 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     gtk_render_background(context, cr, 0, 0, width, height);
 
-    cairo_set_source_rgb(cr,0,0,0);
     cairo_set_line_width (cr,2);
 
     for (int i = 0; i < fractal_segments.size(); i++)
       {
         fractal_segment segment = fractal_segments[i];
 
+        if (segment.iterate)
+          cairo_set_source_rgb(cr,0,0,0);
+        else
+          cairo_set_source_rgb(cr,0.5,0.5,0.5);        
+
         cairo_move_to(cr,segment.x1 * width,segment.y1 * height);
         cairo_line_to(cr,segment.x2 * width,segment.y2 * height);
+        cairo_stroke(cr);
       }
 
     if (draw_state == 1)
       {
         cairo_move_to(cr,tmp_x1 * width,tmp_y1 * height);
         cairo_line_to(cr,cursor_x,cursor_y);
+        cairo_stroke(cr);
       }
-
-    cairo_stroke(cr);
 
     if (fractal_segments.size() > 0)
       {
         cairo_set_source_rgb(cr,1,0,0);
         cairo_arc(cr,fractal_segments[0].x1 * width,fractal_segments[0].y1 * height,5,0,2 * G_PI);
+        cairo_fill(cr);
+        cairo_set_source_rgb(cr,0,1,0);
         cairo_arc(cr,fractal_segments[fractal_segments.size() - 1].x2 * width,fractal_segments[fractal_segments.size() - 1].y2 * height,5,0,2 * G_PI);
+        cairo_fill(cr);
       }
 
-    cairo_fill(cr);
     return FALSE;
   }
 
@@ -141,7 +182,7 @@ gboolean mouse_press_callback2(GtkWidget *widget,GdkEventButton *event)
         new_segment.y1 = tmp_y1;
         new_segment.x2 = x;
         new_segment.y2 = y;
-        new_segment.iterate = true;
+        new_segment.iterate = gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(iterate_toggle));
 
         fractal_segments.push_back(new_segment);
 
@@ -167,8 +208,21 @@ int main(int argc, char *argv[])
     button_render = gtk_button_new_with_label("render");
     button_clear = gtk_button_new_with_label("clear");
 
+    iteration_input = gtk_spin_button_new_with_range(0,100,1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(iteration_input),4);
+
+    separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
+
+    iterate_toggle = gtk_toggle_button_new_with_label("iterate segment");
+
+    gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(iterate_toggle),true);
+
     gtk_box_pack_start(GTK_BOX(box),button_render,false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("iterations"),false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),iteration_input,false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),separator,false,false,2);
     gtk_box_pack_start(GTK_BOX(box),button_clear,false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),iterate_toggle,false,false,2);
 
     draw_area = gtk_drawing_area_new();
     g_signal_connect(G_OBJECT(draw_area),"draw",G_CALLBACK(draw_callback),NULL);
@@ -179,6 +233,9 @@ int main(int argc, char *argv[])
 
     g_signal_connect(G_OBJECT(draw_area2),"motion_notify_event",G_CALLBACK(mouse_motion_callback2),NULL);
     g_signal_connect(G_OBJECT(draw_area2),"button_press_event",G_CALLBACK(mouse_press_callback2),NULL);
+
+    g_signal_connect(G_OBJECT(button_clear),"clicked",G_CALLBACK(clear_clicked_callback),NULL);
+    g_signal_connect(G_OBJECT(button_render),"clicked",G_CALLBACK(render_clicked_callback),NULL);
 
     frame_menu = gtk_frame_new("menu");
     frame_render = gtk_frame_new("render");
