@@ -19,6 +19,7 @@ GtkWidget *separator;
 GtkWidget *iterate_toggle;
 
 GtkWidget *iteration_input;
+GtkWidget *line_width_input;
 
 GtkWidget *frame_menu;
 GtkWidget *frame_render;
@@ -29,9 +30,9 @@ GtkWidget *draw_area2;
 
 typedef struct
   {
-    double x1;      // normalise coordinates
+    double x1;      // pixel coordinates
     double y1;
-    double x2;      // normalise coordinates
+    double x2;
     double y2;
     bool iterate;   // if true, the segment will be iterated on
   } fractal_segment;
@@ -155,6 +156,11 @@ fractal_segment apply_transform_to_segment(fractal_segment segment, transform wh
     return segment;
   }
 
+void line_width_change_callback()
+  {
+    gtk_widget_queue_draw(draw_area);
+  }
+
 gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
   {
     guint width, height;
@@ -168,15 +174,15 @@ gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     gtk_render_background(context, cr, 0, 0, width, height);
 
-    cairo_set_line_width(cr,2);
+    cairo_set_line_width(cr,gtk_spin_button_get_value(GTK_SPIN_BUTTON(line_width_input)));
 
     cairo_set_source_rgb(cr,0,0,0);        
 
     for (int i = 0; i < iterated_fractal_segments.size(); i++)
       {
         fractal_segment segment = iterated_fractal_segments[i];
-        cairo_move_to(cr,segment.x1 * width,segment.y1 * height);
-        cairo_line_to(cr,segment.x2 * width,segment.y2 * height);
+        cairo_move_to(cr,segment.x1,segment.y1);
+        cairo_line_to(cr,segment.x2,segment.y2);
         cairo_stroke(cr);
       }
 
@@ -216,11 +222,18 @@ void generate_fractal(int iterations)
 
             t = segment_to_segment_transform(s,iterated_fractal_segments[i]);
 
-            for (int j = 0; j < fractal_segments.size(); j++)
+            if (iterated_fractal_segments[i].iterate)
               {
-                fractal_segment transformed_segment = fractal_segments[j];
-                transformed_segment = apply_transform_to_segment(transformed_segment,t,line_center_x,line_center_y);       
-                new_segments.push_back(transformed_segment);
+                for (int j = 0; j < fractal_segments.size(); j++)
+                  {
+                    fractal_segment transformed_segment = fractal_segments[j];
+                    transformed_segment = apply_transform_to_segment(transformed_segment,t,line_center_x,line_center_y);       
+                    new_segments.push_back(transformed_segment);
+                  }
+              }
+            else
+              {
+                new_segments.push_back(iterated_fractal_segments[i]);
               }
           }
 
@@ -242,9 +255,6 @@ gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
     cout << "rendering" << endl;
     generate_fractal(gtk_spin_button_get_value(GTK_SPIN_BUTTON(iteration_input)));
     cout << "segments: " << iterated_fractal_segments.size() << endl;
-
-    print_segments(iterated_fractal_segments);
-
     gtk_widget_queue_draw(draw_area);
   }
 
@@ -272,14 +282,14 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
         else
           cairo_set_source_rgb(cr,0.5,0.5,1);        
 
-        cairo_move_to(cr,segment.x1 * width,segment.y1 * height);
-        cairo_line_to(cr,segment.x2 * width,segment.y2 * height);
+        cairo_move_to(cr,segment.x1,segment.y1);
+        cairo_line_to(cr,segment.x2,segment.y2);
         cairo_stroke(cr);
       }
 
     if (draw_state == 1)
       {
-        cairo_move_to(cr,tmp_x1 * width,tmp_y1 * height);
+        cairo_move_to(cr,tmp_x1,tmp_y1);
         cairo_line_to(cr,cursor_x,cursor_y);
         cairo_stroke(cr);
       }
@@ -290,18 +300,18 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
         cairo_set_dash(cr,dashed3,1,0);
 
         cairo_set_source_rgb(cr,0.5,0.5,0.7);
-        cairo_move_to(cr,fractal_segments[0].x1 * width,fractal_segments[0].y1 * height);
-        cairo_line_to(cr,fractal_segments[fractal_segments.size() - 1].x2 * width,fractal_segments[fractal_segments.size() - 1].y2 * height);
+        cairo_move_to(cr,fractal_segments[0].x1,fractal_segments[0].y1);
+        cairo_line_to(cr,fractal_segments[fractal_segments.size() - 1].x2,fractal_segments[fractal_segments.size() - 1].y2);
         cairo_stroke(cr);
        
         cairo_set_dash(cr,NULL,0,0);
 
         cairo_set_source_rgb(cr,1,0,0);
-        cairo_arc(cr,fractal_segments[0].x1 * width,fractal_segments[0].y1 * height,5,0,2 * G_PI);
+        cairo_arc(cr,fractal_segments[0].x1,fractal_segments[0].y1,5,0,2 * G_PI);
         cairo_fill(cr);
 
         cairo_set_source_rgb(cr,0,1,0);
-        cairo_arc(cr,fractal_segments[fractal_segments.size() - 1].x2 * width,fractal_segments[fractal_segments.size() - 1].y2 * height,5,0,2 * G_PI);
+        cairo_arc(cr,fractal_segments[fractal_segments.size() - 1].x2,fractal_segments[fractal_segments.size() - 1].y2,5,0,2 * G_PI);
         cairo_fill(cr);
       }
 
@@ -329,8 +339,8 @@ gboolean mouse_press_callback2(GtkWidget *widget,GdkEventButton *event)
 
     double x, y;
 
-    x = event->x / double(width);
-    y = event->y / double(height);
+    x = event->x; //   / double(width);
+    y = event->y; //   / double(height);
 
     if (draw_state == 0)
       {
@@ -375,6 +385,9 @@ int main(int argc, char *argv[])
     iteration_input = gtk_spin_button_new_with_range(0,100,1);
     gtk_spin_button_set_value(GTK_SPIN_BUTTON(iteration_input),4);
 
+    line_width_input = gtk_spin_button_new_with_range(1,10,1);
+    gtk_spin_button_set_value(GTK_SPIN_BUTTON(line_width_input),2);
+
     separator = gtk_separator_new(GTK_ORIENTATION_HORIZONTAL);
 
     iterate_toggle = gtk_toggle_button_new_with_label("iterate segment");
@@ -384,6 +397,8 @@ int main(int argc, char *argv[])
     gtk_box_pack_start(GTK_BOX(box),button_render,false,false,2);
     gtk_box_pack_start(GTK_BOX(box),gtk_label_new("iterations"),false,false,2);
     gtk_box_pack_start(GTK_BOX(box),iteration_input,false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),gtk_label_new("line width"),false,false,2);
+    gtk_box_pack_start(GTK_BOX(box),line_width_input,false,false,2);
     gtk_box_pack_start(GTK_BOX(box),separator,false,false,2);
     gtk_box_pack_start(GTK_BOX(box),button_clear,false,false,2);
     gtk_box_pack_start(GTK_BOX(box),iterate_toggle,false,false,2);
@@ -400,6 +415,8 @@ int main(int argc, char *argv[])
 
     g_signal_connect(G_OBJECT(button_clear),"clicked",G_CALLBACK(clear_clicked_callback),NULL);
     g_signal_connect(G_OBJECT(button_render),"clicked",G_CALLBACK(render_clicked_callback),NULL);
+
+    g_signal_connect(G_OBJECT(line_width_input),"value-changed",G_CALLBACK(line_width_change_callback),NULL);
 
     frame_menu = gtk_frame_new("menu");
     frame_render = gtk_frame_new("render");
@@ -433,7 +450,7 @@ int main(int argc, char *argv[])
     gtk_paned_add2(GTK_PANED(paned2),frame_draw);
 
     gtk_paned_set_position(GTK_PANED(paned),200);
-    gtk_paned_set_position(GTK_PANED(paned2),400);
+    gtk_paned_set_position(GTK_PANED(paned2),300);
 
     gtk_container_add(GTK_CONTAINER(window),paned);
 
