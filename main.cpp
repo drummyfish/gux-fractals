@@ -2,6 +2,7 @@
 #include <gdk/gdk.h>
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
@@ -32,8 +33,16 @@ typedef struct
     double y1;
     double x2;      // normalise coordinates
     double y2;
-    bool iterate;  // if true, the segment will be iterated on
+    bool iterate;   // if true, the segment will be iterated on
   } fractal_segment;
+
+typedef struct         // represents a transform in the following order: rotation (CW, around center), scale (around center), translate (from original center to original center 2)
+  {
+    double rotation;   // in radians
+    double scale;
+    double translate_x;
+    double translate_y;
+  } transform;
 
 vector<fractal_segment> fractal_segments;  // segments the user has drawn
 vector<fractal_segment> iterated_fractal_segments;
@@ -43,6 +52,103 @@ double tmp_x1;
 double tmp_y1;
 double cursor_x;
 double cursor_y;
+
+void print_segment(fractal_segment s)
+  {
+    cout << "[" << s.x1 << "," << s.y1 << "] [" << s.x2 << "," << s.y2 << "]" << endl;
+  }
+
+void print_segments(vector<fractal_segment> v)
+  {
+    for (int i = 0; i < v.size(); i++)
+      print_segment(v[i]);
+  }
+
+transform segment_to_segment_transform(fractal_segment segment_from, fractal_segment segment_to)
+  {
+    transform result;
+    
+    double center1_x = (segment_from.x1 + segment_from.x2) / 2.0;
+    double center1_y = (segment_from.y1 + segment_from.y2) / 2.0;
+    double center2_x = (segment_to.x1 + segment_to.x2) / 2.0;
+    double center2_y = (segment_to.y1 + segment_to.y2) / 2.0;
+
+    result.translate_x = center2_x - center1_x;
+    result.translate_y = center2_y - center1_y;
+
+    double vec1_x = segment_from.x2 - segment_from.x1;
+    double vec1_y = segment_from.y2 - segment_from.y1;
+    double vec1_length = sqrt(vec1_x * vec1_x + vec1_y * vec1_y);
+
+    vec1_x /= vec1_length;   // normalize
+    vec1_y /= vec1_length;
+
+    double vec2_x = segment_to.x2 - segment_to.x1;
+    double vec2_y = segment_to.y2 - segment_to.y1;
+    double vec2_length = sqrt(vec2_x * vec2_x + vec2_y * vec2_y);
+
+    vec2_x /= vec2_length;   // normalize
+    vec2_y /= vec2_length;
+
+    result.rotation = acos(vec1_x * vec2_x + vec1_y * vec2_y);       // angle between vec1 and vec2, dot product
+
+    double z = vec1_x * vec2_y - vec1_y * vec2_x;                    // z component of cross product, to determine CW/CCW
+
+    if (z >= 0)
+      result.rotation *= -1;
+      
+    result.scale = vec2_length / vec1_length;
+
+    return result;
+  }
+
+fractal_segment apply_transform_to_segment(fractal_segment segment, transform what_transform)
+  {
+    double center_x = (segment.x1 + segment.x2) / 2.0;
+    double center_y = (segment.y1 + segment.y2) / 2.0;
+
+    // move to center
+    segment.x1 -= center_x;   
+    segment.y1 -= center_y;
+    segment.x2 -= center_x;
+    segment.y2 -= center_y;
+        
+    // scale
+    segment.x1 *= what_transform.scale;
+    segment.y1 *= what_transform.scale;
+    segment.x2 *= what_transform.scale;
+    segment.y2 *= what_transform.scale;
+
+    // rotate
+    double s = sin(2 * G_PI - what_transform.rotation);
+    double c = cos(2 * G_PI - what_transform.rotation);
+
+    double x = segment.x1;
+    double y = segment.y1;
+
+    segment.x1 = x * c - y * s;
+    segment.y1 = x * s + y * c;
+ 
+    x = segment.x2;
+    y = segment.y2;
+
+    segment.x2 = x * c - y * s;
+    segment.y2 = x * s + y * c;
+
+    // move to original position
+    segment.x1 += center_x;   
+    segment.y1 += center_y;
+    segment.x2 += center_x;
+    segment.y2 += center_y;
+
+    // translate
+    segment.x1 += what_transform.translate_x;
+    segment.y1 += what_transform.translate_y;
+    segment.x2 += what_transform.translate_x;
+    segment.y2 += what_transform.translate_y;
+
+    return segment;
+  }
 
 gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
   {
@@ -76,9 +182,44 @@ void generate_fractal(int iterations)
   {
     iterated_fractal_segments.clear();
 
-    for (int i = 0; i < fractal_segments.size(); i++)
+    if (fractal_segments.size() == 0)
+      return;
+
+    for (int i = 0; i < fractal_segments.size(); i++) // copy the pattern
+      iterated_fractal_segments.push_back(fractal_segments[i]);
+
+    vector<fractal_segment> new_segments;
+
+    for (int iteration = 0; iteration < iterations; iteration++)
       {
-        iterated_fractal_segments.push_back(fractal_segments[i]);
+        cout << "iteration " << iteration + 1 << endl;
+
+        new_segments.clear();
+
+        for (int i = 0; i < iterated_fractal_segments.size(); i++)
+          {
+            transform t;
+            fractal_segment s;
+
+            s.x1 = fractal_segments[0].x1;
+            s.y1 = fractal_segments[0].y1;
+            s.x2 = fractal_segments[fractal_segments.size() - 1].x2;
+            s.y2 = fractal_segments[fractal_segments.size() - 1].y2;
+
+            t = segment_to_segment_transform(s,iterated_fractal_segments[i]);
+
+            for (int j = 0; j < fractal_segments.size(); j++)
+              {
+                fractal_segment transformed_segment = fractal_segments[j];
+                transformed_segment = apply_transform_to_segment(transformed_segment,t);       
+                new_segments.push_back(transformed_segment);
+              }
+          }
+
+        iterated_fractal_segments.clear();
+
+        for (int i = 0; i < new_segments.size(); i++)
+          iterated_fractal_segments.push_back(new_segments[i]);
       }
   }
 
@@ -91,7 +232,11 @@ gboolean clear_clicked_callback(GtkButton *button,gpointer user_data)
 gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
   {
     cout << "rendering" << endl;
-    generate_fractal(3);
+    generate_fractal(1);
+    cout << "segments: " << iterated_fractal_segments.size() << endl;
+
+    print_segments(iterated_fractal_segments);
+
     gtk_widget_queue_draw(draw_area);
   }
 
@@ -195,6 +340,50 @@ gboolean mouse_press_callback2(GtkWidget *widget,GdkEventButton *event)
 
 int main(int argc, char *argv[])
   {
+/*
+fractal_segment s1;
+s1.x1 = 0;
+s1.y1 = 0;
+s1.x2 = 1;
+s1.y2 = 0;
+
+fractal_segment s2;
+s2.x1 = 0;
+s2.y1 = 0;
+s2.x2 = 1;
+s2.y2 = 1;
+
+transform aaa = segment_to_segment_transform(s1,s2);
+
+cout << aaa.rotation << endl;
+cout << aaa.scale << endl;
+cout << aaa.translate_x << endl;
+cout << aaa.translate_y << endl;
+
+return 0;
+*/
+
+/*
+fractal_segment s;
+s.x1 = -1;
+s.y1 = 0;
+s.x2 = 1;
+s.y2 = 0;
+
+cout << "[" << s.x1 << "," << s.y1 << "] [" << s.x2 << "," << s.y2 << "]" << endl;
+
+transform t;
+t.rotation = G_PI / 4;
+t.scale = 1;
+t.translate_x = 0;
+t.translate_y = 0;
+
+s = apply_transform_to_segment(s,t);
+
+cout << "[" << s.x1 << "," << s.y1 << "] [" << s.x2 << "," << s.y2 << "]" << endl;
+
+return 0;
+*/
     gtk_init(&argc, &argv);
 
     window = gtk_window_new(GTK_WINDOW_TOPLEVEL);
