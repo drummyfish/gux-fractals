@@ -72,7 +72,7 @@ void print_segment(fractal_segment s)              // for debugging
 
 void print_segments(vector<fractal_segment> v)
   {
-    for (int i = 0; i < v.size(); i++)
+    for (int i = 0; i < (int) v.size(); i++)
       print_segment(v[i]);
   }
 
@@ -177,7 +177,6 @@ void redraw_callback()
 gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
   {
     guint width, height;
-    GdkRGBA color;
     GtkStyleContext *context;
 
     context = gtk_widget_get_style_context(widget);
@@ -188,8 +187,8 @@ gboolean draw_callback(GtkWidget *widget,cairo_t *cr,gpointer data)
     gtk_render_background(context,cr,0,0,width,height);
 
     cairo_set_line_width(cr,gtk_spin_button_get_value(GTK_SPIN_BUTTON(line_width_input)));
-
-    for (int i = 0; i < iterated_fractal_segments.size(); i++)
+ 
+    for (int i = 0; i < (int) iterated_fractal_segments.size(); i++)
       {
         fractal_segment segment = iterated_fractal_segments[i];
 
@@ -216,7 +215,7 @@ void generate_fractal(int iterations)
     if (pattern_segments.size() == 0)
       return;
 
-    for (int i = 0; i < pattern_segments.size(); i++) // copy the pattern
+    for (int i = 0; i < (int) pattern_segments.size(); i++) // copy the pattern
       {
         iterated_fractal_segments.push_back(pattern_segments[i]);
         iterated_fractal_segments[iterated_fractal_segments.size() - 1].iteration_number = 0;
@@ -233,7 +232,7 @@ void generate_fractal(int iterations)
 
         new_segments.clear();
 
-        for (int i = 0; i < iterated_fractal_segments.size(); i++)
+        for (int i = 0; i < (int) iterated_fractal_segments.size(); i++)
           {
             transform t;
             fractal_segment s;
@@ -249,7 +248,7 @@ void generate_fractal(int iterations)
 
             if (iterated_fractal_segments[i].iterate)
               {
-                for (int j = 0; j < pattern_segments.size(); j++)
+                for (int j = 0; j < (int) pattern_segments.size(); j++)
                   {
                     fractal_segment transformed_segment = pattern_segments[j];
                     transformed_segment = apply_transform_to_segment(transformed_segment,t,line_center_x,line_center_y);  
@@ -265,7 +264,7 @@ void generate_fractal(int iterations)
 
         iterated_fractal_segments.clear();
 
-        for (int i = 0; i < new_segments.size(); i++)
+        for (int i = 0; i < (int) new_segments.size(); i++)
           iterated_fractal_segments.push_back(new_segments[i]);
       }
   }
@@ -274,6 +273,8 @@ gboolean clear_clicked_callback(GtkButton *button,gpointer user_data)
   {
     pattern_segments.clear();
     gtk_widget_queue_draw(draw_area2);
+
+    return FALSE;
   }
 
 gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
@@ -282,12 +283,13 @@ gboolean render_clicked_callback(GtkButton *button,gpointer user_data)
     generate_fractal(gtk_spin_button_get_value(GTK_SPIN_BUTTON(iteration_input)));
     cout << "segments: " << iterated_fractal_segments.size() << endl;
     gtk_widget_queue_draw(draw_area);
+
+    return FALSE;
   }
 
 gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
   {
     guint width, height;
-    GdkRGBA color;
     GtkStyleContext *context;
 
     context = gtk_widget_get_style_context(widget);
@@ -299,7 +301,7 @@ gboolean draw_callback2(GtkWidget *widget,cairo_t *cr,gpointer data)
 
     cairo_set_line_width(cr,2);
 
-    for (int i = 0; i < pattern_segments.size(); i++)
+    for (int i = 0; i < (int) pattern_segments.size(); i++)
       {
         fractal_segment segment = pattern_segments[i];
 
@@ -358,11 +360,6 @@ gboolean mouse_motion_callback2(GtkWidget *widget,GdkEventButton *event)
 
 gboolean mouse_press_callback2(GtkWidget *widget,GdkEventButton *event)
   {
-    guint width, height;
-
-    width = gtk_widget_get_allocated_width(draw_area2);
-    height = gtk_widget_get_allocated_height(draw_area2);
-
     double x, y;
 
     x = event->x; //   / double(width);
