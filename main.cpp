@@ -54,7 +54,7 @@ typedef struct                          // transform: rotation (CW, around cente
     double scale;
     double translate_x;
     double translate_y;
-  } transform;
+  } transformation;
 
 vector<fractal_segment> pattern_segments;          // pattern segments the user has drawn
 vector<fractal_segment> iterated_fractal_segments;
@@ -78,7 +78,7 @@ void print_segments(vector<fractal_segment> v)
       print_segment(v[i]);
   }
 
-void print_transform(transform t)
+void print_transform(transformation t)
   {
     cout << "transform:" << endl;
     cout << "  rotation: " << t.rotation << " (" << (t.rotation / (2 * G_PI)) * 360 << " deg)" << endl;
@@ -87,9 +87,9 @@ void print_transform(transform t)
   }
 
 // Finds a transformation of one segment to another.
-transform segment_to_segment_transform(fractal_segment segment_from, fractal_segment segment_to)
+transformation segment_to_segment_transform(fractal_segment segment_from, fractal_segment segment_to)
   {
-    transform result;
+    transformation result;
     
     double center1_x = (segment_from.x1 + segment_from.x2) / 2.0;
     double center1_y = (segment_from.y1 + segment_from.y2) / 2.0;
@@ -126,7 +126,7 @@ transform segment_to_segment_transform(fractal_segment segment_from, fractal_seg
   }
 
 // Applies a transformation to given segment.
-fractal_segment apply_transform_to_segment(fractal_segment segment, transform what_transform, double center_x, double center_y)
+fractal_segment apply_transform_to_segment(fractal_segment segment, transformation what_transform, double center_x, double center_y)
   {
     // move to center
     segment.x1 -= center_x;   
@@ -236,7 +236,7 @@ void generate_fractal(int iterations)
 
         for (int i = 0; i < (int) iterated_fractal_segments.size(); i++)
           {
-            transform t;
+            transformation t;
             fractal_segment s;
 
             s.x1 = pattern_segments[0].x1;
