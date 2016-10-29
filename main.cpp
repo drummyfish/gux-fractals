@@ -60,6 +60,8 @@ vector<fractal_segment> pattern_segments;          // pattern segments the user 
 vector<fractal_segment> iterated_fractal_segments;
 int draw_state = 0;                                // 0 - waiting for point 1, 1 - waiting for point 2
 
+int last_random = -1;                              // to prevent generating same random example twice in a row
+
 double tmp_x1;          // holds coordinates of the first point when segment is being drawn
 double tmp_y1;
 double cursor_x;        // current cursor coordinates during segment drawing
@@ -423,8 +425,12 @@ void random_example_clicked_callback()
     pattern_segments.clear();
 
     srand(std::time(0));
+    random = rand() % 10;
 
-    random = rand() % 11;
+    if (random == last_random)
+      random = (random + 1) % 10;
+
+    last_random = random;
 
     switch (random)
       {
@@ -449,7 +455,7 @@ void random_example_clicked_callback()
           append_pattern_segment(340, 150,    510, 205,     true);
           break;
 
-        case 4:        // spirals
+        case 3:        // spirals
           append_pattern_segment(100, 50,     100, 200,     false);
           append_pattern_segment(100, 200,    200, 200,     true);
           append_pattern_segment(200, 200,    250, 50,      true);
@@ -457,7 +463,7 @@ void random_example_clicked_callback()
           append_pattern_segment(350, 50,     350, 200,     false);
           break;
 
-        case 5:        // hexagon
+        case 4:        // hexagon
           append_pattern_segment(200, 150,    250, 70,      true);
           append_pattern_segment(250, 70,     350, 70,      true);
           append_pattern_segment(350, 70,     400, 150,     true);
@@ -466,14 +472,14 @@ void random_example_clicked_callback()
           append_pattern_segment(350, 230,    400, 150,     true);
           break;
 
-        case 6:        // tree
+        case 5:        // tree
           append_pattern_segment(200, 230,    200, 140,     true);
           append_pattern_segment(200, 140,    170, 100,     true);
           append_pattern_segment(200, 140,    230, 100,     true);
           append_pattern_segment(200, 140,    200, 140,     false);
           break;
 
-        case 7:        // fingers
+        case 6:        // fingers
           append_pattern_segment(100, 200,    100, 150,     false);
           append_pattern_segment(100, 150,    200, 150,     true);
           append_pattern_segment(200, 150,    200, 80,      false);
@@ -483,7 +489,7 @@ void random_example_clicked_callback()
           append_pattern_segment(450, 160,    450, 200,     false);
           break;
 
-        case 8:        // hammer
+        case 7:        // hammer
           append_pattern_segment(190, 130,    200, 50,     true);
           append_pattern_segment(200, 50,     250, 50,     true);
           append_pattern_segment(250, 50,     255, 100,    true);
@@ -494,7 +500,7 @@ void random_example_clicked_callback()
           append_pattern_segment(350, 50,     360, 130,    true);
           break;
 
-        case 9:        // cactus
+        case 8:        // cactus
           append_pattern_segment(150, 260,    200, 260,    false);
           append_pattern_segment(200, 260,    220, 200,    false);
           append_pattern_segment(180, 175,    220, 200,    false);
@@ -510,7 +516,7 @@ void random_example_clicked_callback()
           append_pattern_segment(280, 260,    320, 260,    false);
           break;
 
-        case 10:       // leaf
+        case 9:        // leaf
           append_pattern_segment(120, 70,     120, 150,    true);
           append_pattern_segment(120, 150,    170, 200,    false);
           append_pattern_segment(170, 200,    270, 200,    true);
@@ -525,8 +531,6 @@ void random_example_clicked_callback()
 
     gtk_widget_queue_draw(draw_area2);
     render_clicked_callback(NULL,NULL);
-
-    cout << random << endl;
   }
 
 int main(int argc, char *argv[])
